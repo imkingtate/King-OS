@@ -1,61 +1,67 @@
-# SOVEREIGN V2 — incremental development preview
+# SOVEREIGN V2
 
-This branch extends the existing single-page application. It does not replace the existing module data model or deploy to production.
+An incremental overhaul of the existing personal/business operating system. Existing modules and records remain available. Work is on `dev/sovereign-v2`; production deployment requires explicit approval.
 
-## Run and verify
+## Run and test
 
-Requires Node 18+ and Python 3. No application dependencies are installed.
+Node 18+ and Python 3 are required. Application code adds no third-party runtime packages. Vercel serves `dist` and the Node server endpoint in `api/google.js`.
 
 ```sh
 node --test tests/*.test.cjs
-# Optional, when the private recovery artifact is available:
-node tests/legacy-seed.cjs /workspace/legacy-recovery-seed.js
 python build.py
-python -m http.server 8765 --bind 127.0.0.1 --directory dist
+python -m http.server 8766 --bind 127.0.0.1 --directory dist
 ```
 
-With Playwright and Chromium installed, in another shell:
+Browser tests require Playwright and Chromium (supplied by this cloud image). Set `CHROMIUM_PATH` if Chromium is elsewhere; set `SOVEREIGN_TEST_URL` if using a different server port.
 
 ```sh
 node tests/browser.cjs
 node tests/workflows.cjs
 node tests/design.cjs
+node tests/overhaul.cjs
+node tests/vault.cjs
 ```
 
-Browser tests use `require('playwright')` and `/usr/bin/chromium`; override the executable with `CHROMIUM_PATH`. The cloud image supplies both. These tests use isolated browser contexts and synthetic records, never a user's real browser profile. The server is for internal development; do not expose it publicly.
+For the accessibility suite, install test-only axe-core outside the application and set `AXE_SOURCE` to its `axe.min.js`:
 
-## Architecture and storage
+```sh
+npm install --prefix /tmp/sovereign-test-tools --cache /tmp/sovereign-npm-cache --save-exact axe-core@4.14.0
+AXE_SOURCE=/tmp/sovereign-test-tools/node_modules/axe-core/axe.min.js node tests/accessibility.cjs
+```
 
-- `index.html`: retained application, inline Chart.js, legacy modules and UI layers.
-- `storage.js`: shared decoding, structural validation, verified primary writes and recovery-copy preservation.
-- `domain.js`: deterministic migration, command ranking, customer verification and recurrence/forecast calculations.
-- `design.css`: shared midnight, ivory and copper visual system across all modules, navigation, dialogs and welcome.
-- `v2.js` / `v2.css`: incremental operational workspace using the existing state and canonical `S.live` action store.
-- `build.py`: explicit six-file static preview build; excludes backups, Git metadata and test data.
+The installed axe version is recorded in TEST_RESULTS.md; use that version if different. Optional private historical-fixture verification: `node tests/legacy-seed.cjs /workspace/legacy-recovery-seed.js`. The fixture is not served or committed again.
 
-The authoritative device record remains `localStorage.sov_v3`. `sov_v3_prev` retains the previous revision; IndexedDB `sovereign_backup/kv/sov_v3` is a secondary full-state mirror. A corrupt primary pauses startup rather than being silently replaced. The recovery banner downloads original bytes and can restore a validated previous save while retaining the damaged original in `sov_v3_recovery_original`. Normal export serializes every current state field, including unknown modules and V2 records. Recovery artifacts are separate from normal exports. Save errors are visible; no browser storage system is a substitute for external backups.
+## Modules
 
-Migration retains legacy inbox items and links them to canonical actions. Running migration again does not duplicate them. Historical revenue and customer notes remain intact. Historical manual revenue is not evidence of verified payment. New paying-customer classification requires a positive transaction with a human-checked receipt reference. This is manual verification, not bank authentication. A pipeline stage change cannot create revenue.
+- **Command:** ranked priorities, all-action editing/rescheduling/archive/reopen, one canonical daily checklist, upcoming commitments, obligation/content/fulfillment reminders, morning review, evening closeout and downloadable briefing.
+- **Reign Ops:** isolated India/Yami leads, approved offers, planned content linked to actions, acquisition outcomes linked to pipeline changes and follow-ups, receipt-confirmed payments, refunds and fulfillment. Prospect stages never create payments. Customer totals are creator-scoped and net of refunds.
+- **Money:** personal/business/unassigned account classifications, manually confirmed balances, protected savings, unpaid and overdue obligations, subscriptions, weekly/biweekly/monthly/yearly schedules and paydays. Legacy personal totals exclude explicitly business/unassigned accounts. The 60/20/15/5 living/savings/investment/buffer framework is retained.
+- **Personal/family:** one daily physical check-in feeding existing charts, configurable protein/water targets, searchable reflections, skill practice targets/outcomes, weekly meals with preserved revisions, an ingredient shopping list and family commitments.
+- **Settings:** complete-state exports, full recovery archives, validated file restore, revision browser, all-record search, nutrition goals, integration status/imports and season administration. The old destructive reset button is removed; ordinary history remains intact.
+- **Retained modules:** Physical, Mind, Family, Chronicle, Home and the original contextual tools remain in navigation. Dynamic labels, keyboard access, focus handling, contrast and zoom have been repaired across the tested screens. Achievement records remain; routine completion no longer opens a blocking achievement modal.
 
-The original source contained an automatic personal-history seed. It is removed from served source; the original seed script is preserved at `/workspace/legacy-recovery-seed.js` for this environment only. The original Git history also retains it. Do not publish that artifact, or expose repository history as a static site. Real browser-held data has not been accessed or altered.
+## Storage and compatibility
 
-## Workflow
+`localStorage.sov_v3` remains the synchronous working record for compatibility with the retained handlers. Writes validate data, preserve the previous record, read back the result and check for conflicting updates. Unknown module fields are retained. Corrupt records pause startup and expose recovery controls instead of being replaced by defaults.
 
-Command shows ranked actions, upcoming commitments, a local morning review and evening closeout. New inbox captures use `S.live`. Original command tools are retained behind a toggle. Reign Ops separates India/Yami leads, content, offers, activities, verified transactions and fulfillment. Offer approval and payment confirmation are explicit human actions; nothing sends external communications. Money tracks recurring bills, subscriptions, paydays, protected savings and estimated personal cash. Personal/family planning updates the existing meal and calendar records and canonical actions. Settings includes nutrition targets, all-record search and backup entry points.
+IndexedDB `sovereign_backup` upgrades from version 1 to 2 without removing its `kv` mirror. The latest mirror and minute-scale recovery checkpoints are written in one transaction; explicit exports create a fresh checkpoint. Restore operations force before/after snapshots and await the mirror transaction before reloading. Full recovery exports contain the entire state, retained local recovery originals and journal revisions; legacy plain JSON backups remain accepted. Imported journal entries are deduplicated. No automatic history pruning occurs. Quota failures remain visible and require external backup/space management.
 
-## Limitations and follow-up work
+Daily routines are canonical `S.live` entries with stable source references. Linked Blueprint/Hunt actions share one record; contextual legacy completion flags are synchronized at the persistence boundary. Prior daily records remain, and missed daily windows are marked skipped rather than falsely completed. Historic inbox captures, side quests, logs, notes and unknown data fields are retained. Reflections and daily rollover archives preserve original text.
 
-This is an incremental V2 preview, not a completed replacement of every legacy workflow.
+The original repository contained an automatic personal-history seed. It was removed from served source and preserved at `/workspace/legacy-recovery-seed.js`; Git history also retains it. Never serve or automatically import this artifact. No real user browser profile was accessed by these tests.
 
-1. No hosted preview destination is configured. `dist` is built and the internal preview is tested; no public preview or production deployment has occurred.
-2. Browser-local data remains limited by device quota/eviction. Recovery copies consume additional space. Add transactionally versioned IndexedDB storage with multi-device conflict resolution before authenticated sync. The current tab-change guard blocks subsequent saves but is not an atomic cross-tab locking protocol.
-3. Migration tests cover structural preservation, canonical inbox migration, full-state restore and supported legacy schemas. They cannot recover data already pruned by older versions. Historical snapshots must be reconciled by a human; never automatically merge the preserved seed into current data.
-4. Existing layered inline UI remains. New forms have labels, keyboard controls, focus visibility and mobile layout coverage. The entire legacy UI has not received a full accessibility or interaction audit. Administrative features remain accessible in their historical locations as well as Settings entry points.
-5. Existing blueprint/habit checklists remain separate contextual records. Inbox capture is consolidated, but every older task-like subsystem has not been merged. Historical buyer-note keys remain readable as creator-unassigned notes; new notes and paying-customer rows are scoped by creator.
-6. Legacy dashboards and quick revenue logs still use manually entered historical totals. They must not be interpreted as verified financial reports. The V2 workspace labels evidence explicitly. Business cash on hand is unknown. Forecast includes recorded unpaid overdue bills; unrecorded items and externally paid bills need manual reconciliation. Annual recurrence, taxes, refunds, currencies, debt amortization and automatic bank reconciliation are not implemented.
-7. New offers and transaction references cannot authenticate bank evidence. Human verification is recorded; credential-based verification is future work. Customers can be recorded without a matching pipeline handle; identity resolution should be explicit rather than guessed.
-8. Nutrition targets are configurable display goals. No medical recommendation or automatic meal nutrient analysis is performed. Meal history is preserved when the V2 editor replaces a plan.
-9. No calendar/bank integration or scheduled external briefing exists. See `INTEGRATIONS.md`. Optional Google Fonts may fail under restricted networking; system fonts remain available.
-10. Development commits are published on GitHub at `imkingtate/King-OS`, branch `dev/sovereign-v2`. Hosted preview status could not be verified because the GitHub API returned Forbidden. Review the branch and validate a Vercel preview before release. Fresh-cloud-task restoration has not been independently verified.
+## Code map
 
-Before production: import a copy of the user's latest export into an isolated profile, reconcile every historical module, review financial labels across legacy screens, complete the remaining accessibility/task-consolidation work, and validate the hosted preview. Production requires explicit approval.
+`index.html` retains the original app. `storage.js` validates compatibility/persistence; `domain.js` calculates forecasts and command ranking; `operations.js` handles canonical lifecycle, import formats, refund logic and reminders; `vault.js` manages recovery archives; `v2.js` contains operational UI; `accessibility.js` repairs dynamic legacy semantics; `design.css` is the shared visual system. `build.py` copies nine explicit static assets, excluding backups, Git metadata, test tools and credentials.
+
+## Remaining external prerequisites and limits
+
+1. **Google:** server OAuth exists, but Preview needs the four Vercel variables and actual user authorization described in [INTEGRATIONS.md](INTEGRATIONS.md). Mocked tests do not establish a live connection.
+2. **Apple/Chime:** file imports work. Live iCloud and bank access are not configured; they need approved provider access and secure credential/storage design. Chime PDFs and calendar RRULE expansion are not silently guessed.
+3. **Real data:** automated historical verification covers the preserved 136-field repository snapshot and synthetic browser profiles. The user's latest browser export has not been supplied or reconciled. Data pruned by older app versions cannot be reconstructed automatically.
+4. **Durability:** local working storage is retained for compatibility; the tab conflict guard is not an atomic distributed database lock. Versioned IndexedDB recovery protects snapshots, but cloud/multi-device synchronization, server-owned user records and background delivery are not implemented. Export externally before changing browsers/devices. Full recovery imports accept up to 64 MB; larger archives need a separate reviewed recovery procedure.
+5. **Finances:** balances are manual; source imports are labeled, not bank-verified. Classify accounts before relying on forecasts. Update current balances before marking an obligation paid. Financial statements may need transfer/refund reconciliation; forecasts exclude unrecorded items, taxes and obligations not entered. Stable statement references are preferred for imports.
+6. **Accessibility:** automated WCAG checks and keyboard workflows cover the tested default screens at mobile/desktop sizes. They do not replace a human screen-reader audit of every populated historical state.
+7. **Deployment:** development Preview is separate from production. Before production, authenticate/test enabled providers, validate the latest real-data export in an isolated profile, review risks and obtain explicit approval.
+
+See [TEST_RESULTS.md](TEST_RESULTS.md) and [CHANGELOG.md](CHANGELOG.md) for evidence and changes.

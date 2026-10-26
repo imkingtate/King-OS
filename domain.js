@@ -33,7 +33,7 @@ function forecast(s,start,end,scope){
  const v=s.v2;const bills=v.obligations.filter(x=>x.scope===scope).flatMap(x=>occurrences(x,date(x.due),end));
  const income=v.paydays.filter(x=>x.scope===scope).flatMap(x=>occurrences(x,start,end));
  const accounts=s.finAccounts.filter(a=>(s.v2.accountScopes?.[a.name]||'personal')===scope);
- const known=s.financeTouchedAt || (s.finTx||[]).length || accounts.some(a=>Number(a.balance)!==0);
+ const known=s.financeTouchedAt || accounts.some(a=>Number(a.balance)!==0);
  const opening=known&&accounts.length?accounts.reduce((n,a)=>n+(Number(a.balance)||0),0):null;
  const protectedAmount=scope==='personal'?v.protectedSavings:0;
  return {opening,protectedAmount,bills,income,projected:opening===null?null:opening-protectedAmount-bills.reduce((n,x)=>n+x.amount,0)+income.reduce((n,x)=>n+x.amount,0)};

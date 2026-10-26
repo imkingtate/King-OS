@@ -41,3 +41,4 @@ body .btn,body .hdr-icon-btn{min-height:44px;}body [role=button]:focus-visible{o
 /* Legacy scan-in animations dimmed text during navigation and obscured controls. */
 body .card{animation:none!important;opacity:1!important;}
 body .empty{background:#0c1924!important;border:1px solid #2a3d48!important;border-radius:10px!important;}
+body #v2-panel [aria-disabled=true],body #v2-panel button:disabled{opacity:.55;cursor:not-allowed;}

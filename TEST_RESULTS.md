@@ -1,26 +1,24 @@
-# V2 preview verification — 2026-10-26
+# SOVEREIGN V2 verification — 2026-10-26
 
-All results below are from the current development environment. No production deployment or fresh-cloud-task restoration was tested.
+Validation uses this development environment and isolated synthetic browser profiles. It does not access or modify the user's browser data.
 
 | Check | Result |
 | --- | --- |
-| `node --test tests/*.test.cjs` | 14 passed, 0 failed, 0 skipped |
-| `node tests/legacy-seed.cjs` | Preserved historical snapshot: 136 original fields checked through migration and backup roundtrip; idempotency passed; no record values logged |
-| `python build.py` | Six-file static preview built successfully |
-| `tests/browser.cjs` against built preview | Passed at 390px and 1440px |
-| `tests/workflows.cjs` against built preview | Passed at 390px and 1440px |
+| `node --test tests/*.test.cjs` | 31 passed, 0 failed, 0 skipped |
+| `node tests/legacy-seed.cjs` | 136 original historical fields preserved through migration/full-state roundtrip; migration idempotent |
+| `python build.py` | Nine explicit static assets built |
+| `tests/browser.cjs` | Startup, whole-state import/export, corrupt recovery, quota errors, IndexedDB recovery and tab conflicts passed at 390/1440px |
+| `tests/workflows.cjs` | Command, closeout, creator isolation, offers/content/activity/payments, scope separation, finances, meals/family/practice and nutrition persistence passed at 390/1440px |
+| `tests/overhaul.cjs` | Action edit/archive, linked routines, physical records, journal/skills, Apple import, Chime CSV, revision browsing and admin safety passed at 390/1440px |
+| `tests/vault.cjs` | Atomic mirror/journal transaction, full recovery archive, idempotent journal restoration, version-1→2 IndexedDB upgrade and module recovery passed |
+| `tests/design.cjs` | Five operational workspaces and eight retained modules passed bounds/error checks at 390/768/1440px |
+| `tests/accessibility.cjs` | axe-core 4.14.0: zero detected WCAG 2 A/AA and 2.1 AA violations across 13 tested screens at 390/1440px; keyboard search passed |
 | `git diff --check` | Passed |
 
-Browser recovery coverage includes actual application startup, whole-state import/export, unknown-module preservation, corrupt-primary preservation, original-byte recovery retention, previous-save restore, visible quota errors, recovery from IndexedDB after primary loss, and cross-tab save blocking.
+New pure tests cover canonical routine identity and linked actions, lifecycle history and deferred wake-up, CSV quoting/signs/deduplication, repeated legitimate statement rows, account-scope isolation, refund bounds/net customer classification, annual leap dates, biweekly recurrence, calendar replacement/cancellation and unsupported-series rejection, source-linked acquisition/follow-ups, invalid financial data, and nested unsafe-key rejection. Imported transactions cannot establish an opening bank balance.
 
-Browser workflow coverage includes canonical action creation/completion, rollback on failed action persistence, repeated closeout without duplicate tomorrow actions, separate creator workspaces, no automatic revenue on WON stage changes, approved offers, content planning, activity outcomes, receipt-confirmed transactions, scoped paying-customer rows, recurring subscriptions, manual account balances, protected savings, meal-plan history, family commitments, practice actions, nutrition settings and persistence after reload. Form controls are checked against viewport bounds. Startup and workflow checks assert no JavaScript page errors. Mobile visual inspection found transient clipping from the legacy entry animation; animation is disabled for the new operational panel.
+Google endpoint tests use **synthetic** credentials and simulated provider responses. They verify encrypted token tamper rejection, fail-closed missing configuration, OAuth state checks, PKCE, read-only scope, encrypted HttpOnly/Secure/SameSite cookies, sanitized event responses and disconnect CSRF rejection. Actual Google authorization, token refresh against a live account, Apple CalDAV and Chime provider authentication have not run. See INTEGRATIONS.md for the precise external setup requirements.
 
-Unit coverage includes legacy schema and unknown-field preservation, unsupported-version rejection, malformed-shape rejection, failed-write recovery retention, idempotent inbox migration, preservation of idea/brand notes, verified-only customer classification, end-of-month recurrence, paid-occurrence exclusion, overdue bills in forecasts, ledger separation, protected savings, unknown opening balances and command ranking.
+Recovery checkpoints are minute-scale plus explicit/restore checkpoints, not every keystroke. Every normal save updates the current mirror transactionally. No automatic historical pruning is enabled. Real current-browser-data reconciliation, fresh cloud snapshot restoration and a human screen-reader audit of every populated legacy state remain unverified. The preserved historical fixture is a repository artifact, not the user's latest browser export.
 
-These checks use isolated synthetic browser profiles. They do not establish that every legacy feature is correct or that the user's current browser data has been migrated. The historical seed is a preserved repository artifact, not a copy of the user's current browser database.
-
-No hosted preview target was supplied. The internal preview and downloadable static artifact are available; authenticated provider integrations, a full legacy accessibility audit, complete task-system consolidation and production release remain unverified/outstanding as documented in README.md.
-
-## Visual refresh validation
-
-`node tests/design.cjs` verifies five operational workspaces and eight retained modules at 390px, 768px and 1440px, including stylesheet loading, viewport bounds and JavaScript errors. Desktop and mobile screenshots were visually inspected. Existing recovery and operational browser suites were rerun against the rebuilt preview. Storage schemas and financial calculations are unchanged by this refresh.
+Production deployment remains prohibited without explicit approval. Hosted Preview deployment results are reported in chat after GitHub/Vercel confirms the pushed commit.

@@ -26,3 +26,16 @@
 - Add automated domain, storage, recovery and mobile/desktop browser workflows; add an explicit static preview build.
 
 The development branch is published to GitHub. No production deployment or modification of actual browser-held user data was performed. Vercel preview status remains unverified.
+
+## Operational overhaul
+
+- Consolidate Hunt, linked Blueprint actions, habits, home checklists and side quests into source-linked canonical daily actions; preserve earlier days and all historical records.
+- Add all-action editing, rescheduling, archive/reopen, daily wake-up, briefing reminders and downloadable briefings.
+- Upgrade IndexedDB without dropping its original store; maintain a transactional current mirror plus recovery checkpoints, full recovery exports and revision restore. Wait for the recovery transaction before completing imports.
+- Reject unsafe nested data, nonfinite values and invalid refunds; detect conflicting primary updates before writes.
+- Link content plans and acquisition outcomes to canonical actions and follow-ups. Keep paying customers creator-scoped and net of refunds; require verified payments for new revenue milestones.
+- Add explicit personal/business/unassigned account ledgers, annual/biweekly schedules, balance-confirmation rules and statement imports that never fabricate bank balances.
+- Add physical check-ins backed by existing charts, journal records, measured skill practice, ingredients/shopping lists and family commitment completion.
+- Move season/data administration into Settings, remove destructive reset, and retain achievement records without blocking routine work with a modal.
+- Repair accessible names, legacy keyboard activation, focus handling, zoom and contrast; verify all tested screens with axe-core and keyboard workflows.
+- Add server-side Google Calendar OAuth with PKCE and encrypted HttpOnly sessions, plus Apple Calendar file import and standardized Chime/statement CSV import. Live Google authorization still requires Vercel configuration; live iCloud/Chime access and background delivery remain external prerequisites.

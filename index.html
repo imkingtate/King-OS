@@ -3070,8 +3070,9 @@ function computeBuyers(){var m=Object.create(null);
 S.reignRev.forEach(function(r){
  if(!r.v2transaction||!S.v2||!S.v2.transactions.some(function(t){return t.id===r.v2transaction&&SovereignDomain.verified(t);}))return;
  var buyer=(r.buyer||'').trim();if(!buyer)return;var key=JSON.stringify([r.creator||'Unassigned',buyer]);
+ var transaction=S.v2.transactions.find(function(t){return t.id===r.v2transaction;});var net=SovereignOps.net(transaction);if(!net)return;
  if(!m[key])m[key]={name:buyer,noteKey:key,creator:r.creator||'Unassigned',total:0,count:0,lastTs:0,ventures:{}};
- var transaction=S.v2.transactions.find(function(t){return t.id===r.v2transaction;});var net=SovereignOps.net(transaction);if(!net)return;m[key].total+=net;m[key].count++;
+ m[key].total+=net;m[key].count++;
  if((r.ts||0)>m[key].lastTs)m[key].lastTs=r.ts||0;
  if(r.creator)m[key].ventures[r.creator]=true;
 });return Object.values(m).sort(function(a,b){return b.total-a.total;});}
