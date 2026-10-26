@@ -16,4 +16,4 @@
 - Document secure integration design and remaining limitations; no live synchronization is claimed.
 - Add automated domain, storage, recovery and mobile/desktop browser workflows; add an explicit static preview build.
 
-No production deployment, source push, or modification of actual browser-held user data was performed.
+The development branch is published to GitHub. No production deployment or modification of actual browser-held user data was performed. Vercel preview status remains unverified.
