@@ -19,6 +19,7 @@ With Playwright and Chromium installed, in another shell:
 ```sh
 node tests/browser.cjs
 node tests/workflows.cjs
+node tests/design.cjs
 ```
 
 Browser tests use `require('playwright')` and `/usr/bin/chromium`; override the executable with `CHROMIUM_PATH`. The cloud image supplies both. These tests use isolated browser contexts and synthetic records, never a user's real browser profile. The server is for internal development; do not expose it publicly.
@@ -28,8 +29,9 @@ Browser tests use `require('playwright')` and `/usr/bin/chromium`; override the 
 - `index.html`: retained application, inline Chart.js, legacy modules and UI layers.
 - `storage.js`: shared decoding, structural validation, verified primary writes and recovery-copy preservation.
 - `domain.js`: deterministic migration, command ranking, customer verification and recurrence/forecast calculations.
+- `design.css`: shared midnight, ivory and copper visual system across all modules, navigation, dialogs and welcome.
 - `v2.js` / `v2.css`: incremental operational workspace using the existing state and canonical `S.live` action store.
-- `build.py`: explicit five-file static preview build; excludes backups, Git metadata and test data.
+- `build.py`: explicit six-file static preview build; excludes backups, Git metadata and test data.
 
 The authoritative device record remains `localStorage.sov_v3`. `sov_v3_prev` retains the previous revision; IndexedDB `sovereign_backup/kv/sov_v3` is a secondary full-state mirror. A corrupt primary pauses startup rather than being silently replaced. The recovery banner downloads original bytes and can restore a validated previous save while retaining the damaged original in `sov_v3_recovery_original`. Normal export serializes every current state field, including unknown modules and V2 records. Recovery artifacts are separate from normal exports. Save errors are visible; no browser storage system is a substitute for external backups.
 

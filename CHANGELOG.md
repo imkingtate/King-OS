@@ -1,5 +1,14 @@
 # Changelog
 
+## Observatory visual refresh
+
+- Unify all modules with midnight-blue surfaces, ivory typography, copper highlights and teal focus states.
+- Replace the plain operational panel with an editorial masthead, real status tiles and responsive workspace cards.
+- Restyle shared cards, inputs, buttons, navigation, Atlas, dialogs and welcome screen.
+- Keep mobile navigation intentional, retain 44px operational controls and respect reduced motion.
+- Verify all five operational workspaces and eight retained modules at phone, tablet and desktop widths.
+- Preserve storage schemas and business logic; development preview only.
+
 ## V2 development preview
 
 - Preserve unreadable primary records; show save/recovery failures and verified write errors.
