@@ -11,6 +11,16 @@ function validate(value, defaults){
    if(typeof expected==='object' && !Array.isArray(expected) && (!value[key] || typeof value[key]!=='object' || Array.isArray(value[key]))) throw Error(key+' must be an object');
   }
  }
+ const arrays=['live','actionsList','countersList','habitsList','homeChecksList','reignCreators','mealPlan','workoutPlan'];
+ for(const key of arrays)if(value[key]!=null&&!Array.isArray(value[key]))throw Error(key+' must be an array');
+ if(value.v2){
+  const v=value.v2;if(v.version!==2)throw Error('Unsupported data version');
+  for(const key of ['obligations','paydays','offers','content','activities','transactions','fulfillment'])if(!Array.isArray(v[key]))throw Error('Invalid v2 '+key);
+  if(!v.briefings||typeof v.briefings!=='object'||Array.isArray(v.briefings))throw Error('Invalid briefings');
+  if(!v.nutrition||!Number.isFinite(v.nutrition.protein)||v.nutrition.protein<=0||!Number.isFinite(v.nutrition.water)||v.nutrition.water<=0)throw Error('Invalid nutrition targets');
+  if(!Number.isFinite(v.protectedSavings)||v.protectedSavings<0)throw Error('Invalid protected savings');
+  for(const item of [...v.obligations,...v.paydays,...v.transactions,...v.offers])if(!Number.isFinite(item.amount)||item.amount<=0)throw Error('Invalid monetary record');
+ }
  return value;
 }
 function decode(raw,defaults){

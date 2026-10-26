@@ -1107,6 +1107,7 @@ select option{background:var(--card2)}
 </div>
 </div><!-- /app -->
 <script src="storage.js"></script>
+<script src="domain.js"></script>
 <script>
 /* Chart.js v4.5.1 UMD build, embedded inline (not CDN-loaded) so the
    file keeps working fully offline if opened locally, per constraint. */
@@ -1471,7 +1472,9 @@ function storageError(message){
  var restore=document.createElement('button');restore.textContent='Recover previous save';restore.style.marginLeft='12px';
  restore.onclick=function(){try{var raw=localStorage.getItem('sov_v3_prev');if(!raw)throw Error('No previous save exists');SovereignStorage.decode(raw,DS);if(!confirm('Restore previous save? Download the current recovery copy first.'))return;var original=localStorage.getItem('sov_v3');if(original)localStorage.setItem('sov_v3_recovery_original',original);localStorage.setItem('sov_v3',raw);if(localStorage.getItem('sov_v3')!==raw)throw Error('Recovery write failed');location.reload();}catch(e){alert('Recovery failed: '+e.message);}};box.appendChild(restore);
 }
-function save(){try{S.cachedRank=getRank(calcLvl(calcXP())).letter;var json=SovereignStorage.write(localStorage,S,DS);idbMirror(json);var box=document.getElementById('storage-error');if(box)box.remove();return true;}catch(e){storageError('NOT SAVED: '+e.message+'. Export your data now.');return false;}}
+var _storageConflict=false;
+window.addEventListener('storage',function(event){if(event.key==='sov_v3'){_storageConflict=true;storageError('Another tab changed this record. Reload before editing to avoid overwriting newer data.');}});
+function save(){try{if(_storageConflict)throw Error('Another tab changed the record; reload first');S.cachedRank=getRank(calcLvl(calcXP())).letter;var json=SovereignStorage.write(localStorage,S,DS);idbMirror(json);var box=document.getElementById('storage-error');if(box)box.remove();return true;}catch(e){storageError('NOT SAVED: '+e.message+'. Export your data now.');return false;}}
 /* IndexedDB mirror — secondary copy in case localStorage gets cleared
    (iOS Safari especially will evict localStorage under storage pressure).
    Best-effort, never blocks the UI, never throws. */
@@ -1481,7 +1484,7 @@ try{var req=indexedDB.open('sovereign_backup',1);
 req.onupgradeneeded=function(e){e.target.result.createObjectStore('kv');};
 req.onsuccess=function(e){_idb=e.target.result;cb(_idb);};
 req.onerror=function(){cb(null);};}catch(e){cb(null);}}
-function idbMirror(json){idbInit(function(db){if(!db)return;
+function idbMirror(json){idbInit(function(db){if(!db){storageError('Primary saved, but recovery mirror is unavailable. Export a backup.');return;}
 try{var tx=db.transaction('kv','readwrite');tx.objectStore('kv').put(json,'sov_v3');tx.onerror=function(){storageError('Primary saved, but recovery mirror failed. Export a backup.');};}catch(e){storageError('Recovery mirror unavailable. Export a backup.');}});}
 function idbRestore(cb){idbInit(function(db){if(!db){cb(null);return;}
 try{var tx=db.transaction('kv','readonly');var req=tx.objectStore('kv').get('sov_v3');
@@ -1518,7 +1521,7 @@ function dailyReset(){
     var dm2=({normal:1,hard:1.25,nightmare:1.5})[S.difficulty||'normal']||1;
     var earned=Math.round(rawEarned*dm2);
     /* archive the day before wiping anything */
-    S.dayLog[normD(S.lastDate)]={q:done,dm:todaySum,energy:S.energy||0,mood:S.mood||0,xp:earned,sons:!!S.sonsLog[S.lastDate],rev:revOn(S.lastDate),ks:S.killStreak||0};
+    S.dayLog[normD(S.lastDate)]={q:done,dm:todaySum,energy:S.energy||0,mood:S.mood||0,xp:earned,sons:!!S.sonsLog[S.lastDate],rev:revOn(S.lastDate),ks:S.killStreak||0,priorities:[S.p1,S.p2,S.p3],lesson:S.insL,journal:S.jMain,gratitude:S.jGrat,shadow:S.jShad,completed:JSON.parse(JSON.stringify(S.completed)),counters:JSON.parse(JSON.stringify(S.counterToday))};
     /* snapshot Root/Command Score so the number that's supposed to measure
        whether the root is strengthening actually has a trend to show,
        instead of only ever existing as a live read with no memory */
@@ -1528,7 +1531,7 @@ function dailyReset(){
       _cmdSnap.rows.forEach(function(r){_snap[r.k]=r.v;});
       S.rootScoreHistory[normD(S.lastDate)]=_snap;
       var _histKeys=Object.keys(S.rootScoreHistory);
-      if(_histKeys.length>120){_histKeys.sort(function(a,b){return dNum(a)-dNum(b);}).slice(0,_histKeys.length-120).forEach(function(k){delete S.rootScoreHistory[k];});}
+      /* Retain historical scores; export handles long-term backups. */
     }catch(e){}
     /* fold today's (already-scaled) XP into the permanent bank */
     S.bonusXP=(S.bonusXP||0)+earned;
@@ -3060,7 +3063,7 @@ function ventureTime30(ventureId){var log=(S.ventureTimeLog&&S.ventureTimeLog[ve
 for(var d in log){if(dNum(normD(d))>=lo-30)sum+=(+log[d]||0);}return sum;}
 function ventureRev30(name){var now=Date.now();return S.reignRev.filter(function(r){return r.creator===name&&(r.ts||0)>=now-30*864e5;}).reduce(function(a,r){return a+(+r.amt||0);},0);}
 function computeBuyers(){var m={};
-S.reignRev.forEach(function(r){var b=(r.buyer||'').trim();if(!b)return;
+S.reignRev.forEach(function(r){if(!r.v2transaction||!S.v2||!S.v2.transactions.some(function(t){return t.id===r.v2transaction&&SovereignDomain.verified(t);}))return;var b=(r.buyer||'').trim();if(!b)return;
 if(!m[b])m[b]={name:b,total:0,count:0,lastTs:0,ventures:{}};
 m[b].total+=(+r.amt||0);m[b].count++;
 if((r.ts||0)>m[b].lastTs)m[b].lastTs=r.ts||0;
@@ -5381,7 +5384,7 @@ function openXfer(){
  refreshXfer();showModal('m-xfer');
  /* keep only the last 30 days of transfers */
  var ks=Object.keys(S.xfer).sort(function(a,b){return dNum(a)-dNum(b);});
- while(ks.length>30){delete S.xfer[ks.shift()];}
+ /* Retain historical closeouts. */
  save();
 }
 function copyXfer(){
@@ -5498,7 +5501,7 @@ function isObj(o){return o&&typeof o==='object'&&!Array.isArray(o);}
 function cap(s){s=String(s||'');return s.charAt(0).toUpperCase()+s.slice(1);}
 function get(id){return(S.live||[]).filter(function(o){return o.id===id;})[0];}
 function isLead(o){return o.type==='lead'||o.src==='DM'||o.src==='CUSTOMER'||!!o.dm;}
-function hist(o,ev,note){if(!Array.isArray(o.hist))o.hist=[];o.hist.push({ts:Date.now(),ev:ev,note:note||''});if(o.hist.length>40)o.hist.splice(0,o.hist.length-40);if(o.linkedCase&&window.sovCase)try{sovCase.onEv(o,ev,note);}catch(e){}}
+function hist(o,ev,note){if(!Array.isArray(o.hist))o.hist=[];o.hist.push({ts:Date.now(),ev:ev,note:note||''});if(o.linkedCase&&window.sovCase)try{sovCase.onEv(o,ev,note);}catch(e){}}
 function xp(n){S.bonusTodayXP=Math.max(0,(S.bonusTodayXP||0)+n);}
 function dueLabel(isoStr){
  if(!isoStr)return '';var d=dnum(isoStr),t=dnum(isoToday());
@@ -5668,7 +5671,7 @@ function domainEvidence(dom,days){
 }
 function bottleneck(){
  var con={k:'OPEN',d:''};try{con=detectConstraint();}catch(e){}
- try{if(!S.conHist)S.conHist={};S.conHist[T()]=con.k;var ks=Object.keys(S.conHist).sort(function(a,b){return dNum(a)-dNum(b);});while(ks.length>60)delete S.conHist[ks.shift()];}catch(e){}
+ try{if(!S.conHist)S.conHist={};S.conHist[T()]=con.k;var ks=Object.keys(S.conHist).sort(function(a,b){return dNum(a)-dNum(b);});}catch(e){}
  var cls,col;
  if(con.k==='UNVERIFIED'||con.k==='STALE DATA'){cls='INSUFFICIENT DATA';col='var(--crim)';}
  else if(con.k==='OPEN'||con.k==='UNSTRUCTURED'){cls='NONE BINDING';col='var(--em)';}
@@ -7343,4 +7346,6 @@ input:focus,textarea:focus,select:focus{box-shadow:none!important;border-color:#
 .rr-row{border-top:1px solid var(--bd);padding:8px 0}
 .rr-rt{font-size:13px;color:var(--iv);cursor:pointer;margin-bottom:4px}
 </style>
+<link rel="stylesheet" href="v2.css">
+<script src="v2.js"></script>
 </body></html>
