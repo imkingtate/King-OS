@@ -7,7 +7,7 @@ function migrate(input){
  if(s.v2 && s.v2.version>2)throw Error('Newer data version: use a newer application');
  if(!s.v2)s.v2={version:2,briefings:{},obligations:[],paydays:[],offers:[],content:[],activities:[],transactions:[],fulfillment:[],nutrition:{protein:150,water:128},protectedSavings:0};
  for(const [i,item] of (s.inbox||[]).entries()){
-  if(item.convertedTo || item.done)continue;
+  if(item.convertedTo || item.done || item.cat==='BRAND' || item.cat==='IDEA')continue;
   const ref='legacy-inbox:'+i+':'+(item.ts||item.date||'');
   let task=s.live.find(x=>x.ref===ref);
   if(!task){task={id:'v2-inbox-'+i+'-'+(item.ts||0),t:item.t||'',type:'task',src:'INBOX',dom:item.cat==='MONEY'?'MONEY':'SOVEREIGN',priority:'normal',status:'open',dueAt:item.dueAt||'',ts:item.ts||0,date:item.date||'',ref,hist:[{ev:'migrated',ts:0,note:'Original inbox retained'}]};s.live.push(task);}
@@ -32,7 +32,8 @@ function occurrences(item,start,end){
 function forecast(s,start,end,scope){
  const v=s.v2;const bills=v.obligations.filter(x=>x.scope===scope).flatMap(x=>occurrences(x,date(x.due),end));
  const income=v.paydays.filter(x=>x.scope===scope).flatMap(x=>occurrences(x,start,end));
- const opening=scope==='personal'?s.finAccounts.reduce((n,a)=>n+(Number(a.balance)||0),0):null;
+ const known=s.financeTouchedAt || (s.finTx||[]).length || s.finAccounts.some(a=>Number(a.balance)!==0);
+ const opening=scope==='personal'&&known?s.finAccounts.reduce((n,a)=>n+(Number(a.balance)||0),0):null;
  const protectedAmount=scope==='personal'?v.protectedSavings:0;
  return {opening,protectedAmount,bills,income,projected:opening===null?null:opening-protectedAmount-bills.reduce((n,x)=>n+x.amount,0)+income.reduce((n,x)=>n+x.amount,0)};
 }

@@ -8,6 +8,7 @@ const usd=n=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).fo
 const field=(name,label,type='text',value='')=>`<label>${label}<input name="${name}" type="${type}" value="${e(value)}" ${type==='number'?'min="0" step="0.01"':''} required></label>`;
 const select=(name,label,values)=>`<label>${label}<select name="${name}">${values.map(x=>`<option value="${e(x)}">${e(x)}</option>`).join('')}</select></label>`;
 let view='command',creator='India',ready=false;
+function queueAction(data){const item=sovAct.make(data);S.live.unshift(item);return item;}
 function commit(fn){const previous=JSON.stringify(S);try{fn();if(!save()){S=JSON.parse(previous);return false;}render();return true;}catch(err){S=JSON.parse(previous);storageError(err.message);return false;}}
 function form(id,body,button){return `<form data-form="${id}">${body}<button class="btn btn-p" type="submit">${button}</button></form>`;}
 function list(items,empty){return items.length?`<ul>${items.join('')}</ul>`:`<p>${empty}</p>`;}
@@ -44,8 +45,9 @@ function ops(){
 function moneyView(){
  const end=new Date();end.setDate(end.getDate()+30);const f=D.forecast(S,today(),D.date(end.toISOString()),'personal');const v=S.v2;
  return `<h2>Money</h2><p>Personal balances are manually entered. Forecasts are estimates, not bank synchronization. Business revenue remains in Reign Ops.</p>
- <p>Manual personal opening balance: ${usd(f.opening)} · Protected savings: ${usd(f.protectedAmount)} · Estimated spendable in 30 days: ${usd(f.projected)}</p>
+ <p>Manual personal opening balance: ${f.opening===null?"Unknown — enter account balances first":usd(f.opening)} · Protected savings: ${usd(f.protectedAmount)} · Estimated spendable in 30 days: ${f.projected===null?"Unknown until balances are entered":usd(f.projected)}</p>
  <p>Allocation framework: 60% living / 20% savings / 15% investment / 5% buffer. No allocation moves money automatically.</p>
+ ${form('balance',select('account','Personal account',S.finAccounts.map(x=>x.name))+'<label>Current balance (may be negative)<input name="amount" type="number" step="0.01" required></label>','Save manual balance')}
  ${form('savings',field('amount','Protected savings','number',v.protectedSavings),'Protect savings')}
  <h3>Bills, subscriptions and paydays</h3>${form('schedule',select('kind','Record type',['bill','subscription','payday'])+field('name','Name')+field('amount','Amount','number')+field('due','Next date','date',today())+select('repeat','Recurrence',['none','weekly','monthly'])+select('scope','Ledger',['personal','business'])+select('provenance','Evidence',['manual','estimated','verified']),'Add obligation or payday')}
  ${list([...v.obligations,...v.paydays].map(x=>`<li>${e(x.name)} · ${usd(x.amount)} · ${e(x.scope)} · ${e(x.repeat)} · ${e(x.provenance)} ${v.obligations.includes(x)?`<button data-do="paid" data-id="${e(x.id)}">Mark next occurrence paid</button>`:''}</li>`),'No recurring records.')}
@@ -67,9 +69,9 @@ function settings(){return `<h2>Settings and records</h2><h3>Nutrition targets</
 function render(){if(!ready)return;const host=document.getElementById('v2-panel');if(!host)return;host.innerHTML=`<nav aria-label="Operational workspace">${['command','ops','money','routines','settings'].map(x=>`<button data-view="${x}" aria-current="${view===x?'page':'false'}">${{command:'Command',ops:'Reign Ops',money:'Money',routines:'Personal & family',settings:'Settings'}[x]}</button>`).join('')}</nav><div id="v2-status" role="status"></div>`+({command,ops,money:moneyView,routines,settings}[view])()+'<p><button data-do="legacy">Show / hide original command tools</button></p>';}
 function submit(ev){const f=ev.target.closest('[data-form]');if(!f)return;ev.preventDefault();if(!f.reportValidity())return;const p=Object.fromEntries(new FormData(f));const kind=f.dataset.form;
  commit(()=>{const v=S.v2,now=today();const positive=()=>{const n=Number(p.amount);if(!Number.isFinite(n)||n<=0)throw Error('Amount must be positive');return n;};
- if(kind==='action')sovAct.create({t:p.title.trim(),dueAt:p.due,dom:p.domain,src:'OTHER',type:'task'});
- if(kind==='closeout'){const old=v.briefings[now]||{};v.briefings[now]={...old,note:p.note,tomorrow:p.tomorrow,closedAt:Date.now()};if(old.tomorrowAction){const x=S.live.find(x=>x.id===old.tomorrowAction);if(x)x.t=p.tomorrow;}else{const next=new Date();next.setDate(next.getDate()+1);const x=sovAct.create({t:p.tomorrow,dueAt:D.date(next.toISOString()),priority:'high',src:'OTHER',dom:'SOVEREIGN'});v.briefings[now].tomorrowAction=x.id;}}
- if(kind==='routine')sovAct.create({t:p.title,dueAt:p.due,dom:p.domain,src:'OTHER',type:'task'});
+ if(kind==='action')queueAction({t:p.title.trim(),dueAt:p.due,dom:p.domain,src:'OTHER',type:'task'});
+ if(kind==='closeout'){const old=v.briefings[now]||{};v.briefings[now]={...old,note:p.note,tomorrow:p.tomorrow,closedAt:Date.now()};if(old.tomorrowAction){const x=S.live.find(x=>x.id===old.tomorrowAction);if(x)x.t=p.tomorrow;}else{const next=new Date();next.setDate(next.getDate()+1);const x=queueAction({t:p.tomorrow,dueAt:D.date(next.toISOString()),priority:'high',src:'OTHER',dom:'SOVEREIGN'});v.briefings[now].tomorrowAction=x.id;}}
+ if(kind==='routine')queueAction({t:p.title,dueAt:p.due,dom:p.domain,src:'OTHER',type:'task'});
  if(kind==='family')S.calendarEvents.push({title:p.title,date:p.due,cat:'Family',done:false});
  if(kind==='meal'){if(!Array.isArray(S.mealPlan))S.mealPlan=[];if(!Array.isArray(v.mealHistory))v.mealHistory=[];const old=S.mealPlan.find(x=>x.day===p.day);if(old){v.mealHistory.push({...old,changedAt:Date.now()});old.name=p.name;}else S.mealPlan.push({day:p.day,name:p.name});}
  if(kind==='lead'){S.pipeline.push({name:p.name,creator,stage:0,v2stage:p.stage,date:now,amt:0});}
@@ -84,6 +86,7 @@ function submit(ev){const f=ev.target.closest('[data-form]');if(!f)return;ev.pre
   v.fulfillment.push({id:uid(),transaction:t.id,creator,customer:t.customer,terms:offer.terms,status:'pending'});
   S.reignRev.push({amt:t.amount,creator,buyer:t.customer,date:now,ts:Date.now(),v2transaction:t.id,evidence:'human-verified'});
  }
+ if(kind==='balance'){const x=S.finAccounts.find(x=>x.name===p.account);const n=Number(p.amount);if(!x||!Number.isFinite(n))throw Error('Invalid account balance');if(!Array.isArray(v.balanceHistory))v.balanceHistory=[];v.balanceHistory.push({name:x.name,balance:x.balance,changedAt:Date.now()});x.balance=n;S.financeTouchedAt=Date.now();}
  if(kind==='savings'){const n=Number(p.amount);if(!Number.isFinite(n)||n<0)throw Error('Invalid savings amount');v.protectedSavings=n;}
  if(kind==='schedule'){const item={id:uid(),name:p.name,amount:positive(),due:p.due,repeat:p.repeat,scope:p.scope,provenance:p.provenance,kind:p.kind,paidDates:[]};(p.kind==='payday'?v.paydays:v.obligations).push(item);}
  if(kind==='nutrition'){const protein=Number(p.protein),water=Number(p.water);if(protein<=0||water<=0||!Number.isFinite(protein+water))throw Error('Targets must be positive');v.nutrition={protein,water};updateTargets();}
@@ -107,8 +110,8 @@ function click(ev){const b=ev.target.closest('button');if(!b)return;if(b.dataset
 function updateTargets(){const n=S.v2.nutrition;const protein=document.getElementById('d-protein'),water=document.getElementById('d-water');if(protein)protein.parentElement.querySelector('.ms').textContent='target '+n.protein+'g';if(water)water.parentElement.querySelector('.ms').textContent='target '+n.water+'oz';}
 function start(){if(!S||!Array.isArray(S.actionsList)||!Array.isArray(S.live)||!document.getElementById('cc-hero')||getComputedStyle(document.getElementById('app')).display==='none')return;clearInterval(wait);try{S=D.migrate(S);if(!save())return;ready=true;const host=document.createElement('section');host.id='v2-panel';host.className='card';host.setAttribute('aria-label','Daily operational command');document.getElementById('sec-brief').prepend(host);document.getElementById('sec-brief').classList.add('v2-simplified');host.addEventListener('click',click);host.addEventListener('submit',submit);host.addEventListener('input',ev=>{if(ev.target.id!=='v2-search')return;const q=ev.target.value.toLowerCase().trim();const out=document.getElementById('v2-results');if(q.length<2){out.textContent='Enter at least two characters';return;}const results=[];function walk(value,path){if(results.length>=50)return;if(typeof value==='string'&&value.toLowerCase().includes(q))results.push(path+': '+value);else if(value&&typeof value==='object')for(const k of Object.keys(value))walk(value[k],path+'.'+k);}walk(S,'records');out.textContent=results.join('\n')||'No records found';});render();updateTargets();}catch(err){storageError('Migration paused: '+err.message);}}
 // Use the canonical live-action store for new inbox captures. Historical inputs remain linked.
-const oldAdd=window.addInbox;window.addInbox=function(){if(!ready)return oldAdd();const x=document.getElementById('inbox-in');if(x.value.trim()){commit(()=>sovAct.create({t:x.value.trim(),src:'INBOX',dom:'SOVEREIGN',type:'task'}));x.value='';}};
-window.addInboxBrand=window.addInbox;
+const oldAdd=window.addInbox;window.addInbox=function(){if(!ready)return oldAdd();const x=document.getElementById('inbox-in');if(x.value.trim()){commit(()=>queueAction({t:x.value.trim(),src:'INBOX',dom:'SOVEREIGN',type:'task'}));x.value='';}};
+// Brand and idea capture remain notes in their original workspace.
 // Closing a pipeline stage must never manufacture a transaction or remove a prospect.
 window.setStage=function(i,j){const p=S.pipeline[i];if(!p)return;if(j===3){alert('A stage change cannot verify payment. Record a verified transaction in Command → Reign Ops.');return;}commit(()=>{p.stage=j;p.v2stage=['new','contacted','qualified'][j];});renderReign();};
 const wait=setInterval(start,100);start();

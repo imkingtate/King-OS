@@ -1470,7 +1470,7 @@ function storageError(message){
  var download=document.createElement('button');download.textContent='Download recovery copy';download.style.marginLeft='12px';
  download.onclick=function(){try{var raw=localStorage.getItem('sov_v3');var url=URL.createObjectURL(new Blob([raw||''],{type:'application/json'}));var a=document.createElement('a');a.href=url;a.download='sovereign-recovery-original.json';a.click();setTimeout(function(){URL.revokeObjectURL(url);},1000);}catch(e){alert('Browser storage is inaccessible: '+e.message);}};box.appendChild(download);
  var restore=document.createElement('button');restore.textContent='Recover previous save';restore.style.marginLeft='12px';
- restore.onclick=function(){try{var raw=localStorage.getItem('sov_v3_prev');if(!raw)throw Error('No previous save exists');SovereignStorage.decode(raw,DS);if(!confirm('Restore previous save? Download the current recovery copy first.'))return;var original=localStorage.getItem('sov_v3');if(original)localStorage.setItem('sov_v3_recovery_original',original);localStorage.setItem('sov_v3',raw);if(localStorage.getItem('sov_v3')!==raw)throw Error('Recovery write failed');location.reload();}catch(e){alert('Recovery failed: '+e.message);}};box.appendChild(restore);
+ restore.onclick=function(){try{var raw=localStorage.getItem('sov_v3_prev');if(!raw)throw Error('No previous save exists');SovereignStorage.decode(raw,DS);if(!confirm('Restore previous save? Download the current recovery copy first.'))return;var original=localStorage.getItem('sov_v3');if(original){var recoveryKey='sov_v3_recovery_original';var retained=localStorage.getItem(recoveryKey);if(retained&&retained!==original)recoveryKey+='_'+Date.now();localStorage.setItem(recoveryKey,original);}localStorage.setItem('sov_v3',raw);if(localStorage.getItem('sov_v3')!==raw)throw Error('Recovery write failed');location.reload();}catch(e){alert('Recovery failed: '+e.message);}};box.appendChild(restore);
 }
 var _storageConflict=false;
 window.addEventListener('storage',function(event){if(event.key==='sov_v3'){_storageConflict=true;storageError('Another tab changed this record. Reload before editing to avoid overwriting newer data.');}});
@@ -2541,7 +2541,7 @@ var ACTIONS=[
     var b=computeBuyers();return b.slice(0,5).reduce(function(a,x){return a+x.total*0.12;},0);}},
  {id:'content',t:'Shoot or schedule content',dom:'REVENUE',mins:60,cog:3,ev:function(){return 45;}},
  {id:'inbox_clear',t:'Process the inbox',dom:'ADMIN',mins:15,cog:1,relieves:'UNSTRUCTURED',ev:function(){
-    return (S.inbox||[]).filter(function(i){return !i.done;}).length*4;}},
+    return (S.inbox||[]).filter(function(i){return !i.done&&!i.convertedTo;}).length*4;}},
  {id:'log_funnel',t:'Log today\u2019s funnel numbers',dom:'ADMIN',mins:5,cog:1,relieves:'TIME',ev:function(){
     return S.funnelLog[todayStr()]?0:35;}},
  {id:'train',t:'Train',dom:'BODY',mins:40,cog:2,ev:function(){
@@ -2585,7 +2585,7 @@ function fireRules(){
   var days=(S.season&&S.season.days)||30;
   var dailyNeed=tgt?tgt/days:0;
   var dmToday=counterSumToday();
-  var inboxN=(S.inbox||[]).filter(function(i){return !i.done;}).length;
+  var inboxN=(S.inbox||[]).filter(function(i){return !i.done&&!i.convertedTo;}).length;
   var sleep=+(S.sleepLog[t]||S.bodyStats.sleep||0);
   var opp=detectOpportunity();
   /* the actual fix: Root Score could always SEE the weakest domain, but
@@ -2672,7 +2672,7 @@ function computeRestraint(){
   var dmWk=wk.reduce(function(a,k){var f=S.funnelLog[k];return a+((f&&f.dms)||0);},0);
   var sleep=+(S.sleepLog[t]||S.bodyStats.sleep||0);
   var con=detectConstraint();
-  var inboxIdeas=(S.inbox||[]).filter(function(i){return !i.done&&i.cat==='IDEA';}).length;
+  var inboxIdeas=(S.inbox||[]).filter(function(i){return !i.done&&!i.convertedTo&&i.cat==='IDEA';}).length;
   /* things competing for attention that shouldn't win right now */
   if(con.k==='CASH'){out.ignore.push('New projects and infrastructure work — nothing that doesn’t convert this week');}
   if(inboxIdeas>=3)out.ignore.push(inboxIdeas+' captured ideas — they’re logged, they’ll keep. Don’t start any of them today');
@@ -2783,7 +2783,7 @@ function addInboxBrand(){
 }
 function renderInbox(){
   var L=el('inbox-list');if(!L)return;
-  var open=S.inbox.filter(function(x){return !x.done;});
+  var open=S.inbox.filter(function(x){return !x.done&&!x.convertedTo;});
   var c=el('inbox-count');if(c)c.textContent=open.length?open.length+' open':'clear';
   if(!open.length){L.innerHTML='<div class="empty">Inbox clear. Every loop is closed.</div>';return;}
   L.innerHTML=open.slice(0,25).map(function(item){
@@ -3062,13 +3062,15 @@ function rev30(endTs){var lo=endTs-30*864e5;return S.reignRev.filter(function(r)
 function ventureTime30(ventureId){var log=(S.ventureTimeLog&&S.ventureTimeLog[ventureId])||{};var lo=dNum(todayStr())-3000;var sum=0;
 for(var d in log){if(dNum(normD(d))>=lo-30)sum+=(+log[d]||0);}return sum;}
 function ventureRev30(name){var now=Date.now();return S.reignRev.filter(function(r){return r.creator===name&&(r.ts||0)>=now-30*864e5;}).reduce(function(a,r){return a+(+r.amt||0);},0);}
-function computeBuyers(){var m={};
-S.reignRev.forEach(function(r){if(!r.v2transaction||!S.v2||!S.v2.transactions.some(function(t){return t.id===r.v2transaction&&SovereignDomain.verified(t);}))return;var b=(r.buyer||'').trim();if(!b)return;
-if(!m[b])m[b]={name:b,total:0,count:0,lastTs:0,ventures:{}};
-m[b].total+=(+r.amt||0);m[b].count++;
-if((r.ts||0)>m[b].lastTs)m[b].lastTs=r.ts||0;
-if(r.creator)m[b].ventures[r.creator]=true;});
-return Object.values(m).sort(function(a,b2){return b2.total-a.total;});}
+function computeBuyers(){var m=Object.create(null);
+S.reignRev.forEach(function(r){
+ if(!r.v2transaction||!S.v2||!S.v2.transactions.some(function(t){return t.id===r.v2transaction&&SovereignDomain.verified(t);}))return;
+ var buyer=(r.buyer||'').trim();if(!buyer)return;var key=JSON.stringify([r.creator||'Unassigned',buyer]);
+ if(!m[key])m[key]={name:buyer,noteKey:key,creator:r.creator||'Unassigned',total:0,count:0,lastTs:0,ventures:{}};
+ m[key].total+=(+r.amt||0);m[key].count++;
+ if((r.ts||0)>m[key].lastTs)m[key].lastTs=r.ts||0;
+ if(r.creator)m[key].ventures[r.creator]=true;
+});return Object.values(m).sort(function(a,b){return b.total-a.total;});}
 function saveBuyerNote(name,val){S.buyerNotes[name]=val;save();}
 function totalLoggedRev(){return S.reignRev.reduce(function(a,r){return a+(+r.amt||0);},0);}
 function renderReconcile(){var logged=totalLoggedRev();el('rec-logged').textContent=money(logged);checkReconcile();}
@@ -3085,14 +3087,15 @@ S.reignRev.push({amt:gap,creator:venture,buyer:'',tier:'CATCH-UP',date:todayStr(
 save();el('rec-actual').value='';renderReign();toast('\u2713 Reconciled \u2014 '+money(gap)+' logged as catch-up','g');}
 function renderBuyerList(){var L=el('buyer-list');if(!L)return;
 var buyers=computeBuyers();
-if(!buyers.length){L.innerHTML='<div class="empty">No named buyers yet — tag a buyer when you log revenue and they\'ll show up here automatically.</div>';return;}
+if(!buyers.length){L.innerHTML='<div class="empty">No verified paying customers yet. Confirm a transaction in Command → Reign Ops. Historical entries remain in the revenue log.</div>';return;}
 L.innerHTML=buyers.map(function(b){
 var vip=b.total>=150||b.count>=3;
 var vList=Object.keys(b.ventures).join(', ');
 var ld=new Date(b.lastTs);
 return '<div class="buyer-row'+(vip?' vip':'')+'"><div class="buyer-hd"><span class="buyer-name">'+(vip?'\ud83d\udc51 ':'')+esc(b.name)+'</span><span class="buyer-stats">'+money(b.total)+' \u00b7 '+b.count+'x'+(vip?' \u00b7 VIP':'')+'</span></div>'
 +'<div class="buyer-stats">'+esc(vList)+' \u00b7 last '+esc(normD(ld.getFullYear()+'-'+(ld.getMonth()+1)+'-'+ld.getDate()))+'</div>'
-+'<input class="buyer-note" placeholder="Notes — responds to X, prefers Y tier" value="'+esc(S.buyerNotes[b.name]||'')+'" onchange="saveBuyerNote(\''+b.name.replace(/'/g,"\\'")+'\',this.value)">'
++'<input class="buyer-note" aria-label="Customer note" data-buyer="'+esc(b.noteKey)+'" placeholder="Creator-specific note" value="'+esc(S.buyerNotes[b.noteKey]||'')+'" onchange="saveBuyerNote(this.dataset.buyer,this.value)">'
++(Object.prototype.hasOwnProperty.call(S.buyerNotes,b.name)?'<div class="buyer-stats">Legacy note (creator unassigned): '+esc(S.buyerNotes[b.name])+'</div>':'')
 +'</div>';
 }).join('');}
 function renderReign(){
@@ -3655,7 +3658,7 @@ function generateRisks(){
     out.push({c:'BODY',r:'Capacity degrades and output drops with it',m:'Schedule training inside an existing block rather than hoping for a gap.'});
   if(sonsD<3)
     out.push({c:'FAMILY',r:'Family time keeps losing to work',m:'Protect a specific window \u2014 the FLEX block exists for this.'});
-  if((S.inbox||[]).filter(function(i){return !i.done;}).length>=8)
+  if((S.inbox||[]).filter(function(i){return !i.done&&!i.convertedTo;}).length>=8)
     out.push({c:'ATTENTION',r:'Open loops eat focus all week',m:'Clear the inbox before Monday starts.'});
   return out.slice(0,3);
 }
@@ -5118,7 +5121,7 @@ function renderCC(){
   if(s1)s1.textContent=money(k14.reduce(function(a,k){return a+revOn(k);},0))+' \u00b7 14D';
   if(s2)s2.textContent=sumBrand('reps',14)+' reps \u00b7 14D';
   if(s3)s3.textContent=k14.filter(learnDay).length+' learning days \u00b7 14D';
-  var ig=$('cc-gs-wait');if(ig){var ni=(S.inbox||[]).filter(function(x){return !x.done;}).length;ig.textContent=ni?ni+' in inbox':'';}
+  var ig=$('cc-gs-wait');if(ig){var ni=(S.inbox||[]).filter(function(x){return !x.done&&!x.convertedTo;}).length;ig.textContent=ni?ni+' in inbox':'';}
  }catch(e){if(window.console)console.error('sov4 renderCC',e);}
  if(window.sovAct)try{sovAct.afterCC();}catch(e){if(window.console)console.error('sovAct afterCC',e);}
 }
@@ -5282,7 +5285,7 @@ function renderBrandTab(){
  drawBarChart('br-c2',k14.map(function(k){return{label:lb(k),value:bd(k).videos||0};}),'#a3aab0');
  drawBarChart('br-c3',k14.map(function(k){return{label:lb(k),value:bd(k).posts||0};}),'#b4b8bc');
  var hm=$('br-heat');if(hm)hm.innerHTML=drawHeat30(function(k){var x=S.brandLog[k];return x?Math.min(1,((x.reps||0)+(x.videos||0)*2+(x.posts||0)*3+(x.doc?1:0))/5):0;});
- var ide=(S.inbox||[]).filter(function(x){return !x.done&&x.cat==='BRAND';}).slice(0,10);
+ var ide=(S.inbox||[]).filter(function(x){return !x.done&&!x.convertedTo&&x.cat==='BRAND';}).slice(0,10);
  $('br-ideas').innerHTML=ide.length?ide.map(function(x){return '<div class="li"><div><div class="li-t">'+esc(x.t)+'</div></div><button class="btn btn-gh btn-sm" onclick="doneInbox('+S.inbox.indexOf(x)+');sov4.rb()">\u2713</button></div>';}).join(''):'<div class="empty">No open ideas.</div>';
 }
 function bb(f,d){
@@ -5350,7 +5353,7 @@ function buildTransfer(){
  sec('REIGN OPS',['- India'+(india?' ('+money(cashFor(india,1))+' today)':'')+': '+f('india'),'- Alternative Account'+(alt?' ('+money(cashFor(alt,1))+' today)':'')+(S.sprint.altStart?' \u00b7 started '+S.sprint.altStart:'')+': '+f('alt'),'- Other developments: '+f('reign'),'- Cash sprint: '+(S.sprint.on?'ON':'OFF')]);
  sec('SAYKI / WORK',['- '+f('sayki')]);
  var b=bd(t);
- var ideas=(S.inbox||[]).filter(function(i){return !i.done&&i.cat==='BRAND';}).slice(0,8).map(function(i){return '  \u2022 '+i.t;});
+ var ideas=(S.inbox||[]).filter(function(i){return !i.done&&!i.convertedTo&&i.cat==='BRAND';}).slice(0,8).map(function(i){return '  \u2022 '+i.t;});
  sec('PERSONAL BRAND',['- Camera reps '+(b.reps||0)+' \u00b7 Videos recorded '+(b.videos||0)+' \u00b7 Posts published '+(b.posts||0)+' \u00b7 Documented '+(brandActive(t)?'yes':'no'),'- Ideas: '+f('brand')].concat(ideas));
  var fam=kids().map(function(c){var r=cr(t,c);if(!r)return '- '+cap(c)+': no learning logged';var subs=SUBJ.filter(function(sj){return r.ok&&r.ok[sj[0]];}).map(function(sj){return sj[1].toLowerCase()+(r[sj[0]]?' ('+r[sj[0]]+')':'');});return '- '+cap(c)+': '+(subs.join(', ')||'nothing checked')+' \u00b7 completed '+(r.done?'yes':'no')+(r.notes?' \u00b7 '+r.notes:'');});
  sec('FAMILY',fam.concat(['- Today with the boys: '+(S.sonsLog&&S.sonsLog[t]||'\u2014'),'- Important events: '+f('fam')]));
@@ -5362,7 +5365,7 @@ function buildTransfer(){
  sec('DECISIONS MADE',['- '+f('dec')]);
  sec('PROBLEMS DISCOVERED',['- '+f('prob')]);
  var other=lvOpen().filter(function(o){return !(o.dom==='CASH'||o.dom==='REIGN OPS');}).map(lvLine);
- var inb=(S.inbox||[]).filter(function(i){return !i.done&&i.cat!=='BRAND';}).slice(0,10).map(function(i){return '- [INBOX \u00b7 '+i.cat+'] '+i.t;});
+ var inb=(S.inbox||[]).filter(function(i){return !i.done&&!i.convertedTo&&i.cat!=='BRAND';}).slice(0,10).map(function(i){return '- [INBOX \u00b7 '+i.cat+'] '+i.t;});
  sec('OPEN LOOPS',other.concat(inb,x.loops&&x.loops.trim()?['- '+x.loops.trim()]:[]).concat(other.length||inb.length||(x.loops&&x.loops.trim())?[]:['- none']));
  sec('TOMORROW\u2019S IMPORTANT ACTIONS',(window.sovAct?sovAct.dueTomorrowLines():[]).concat(['- '+f('tmr')]));
  sec('DO NOT LOSE',['- '+f('dnl')]);
@@ -6245,13 +6248,13 @@ try{var _fp=renderFailurePatterns;renderFailurePatterns=function(){var r=_fp.app
 try{var _wd=renderWeeklyDigest;renderWeeklyDigest=function(){var r=_wd.apply(this,arguments);try{var L=$('weekly-digest');if(L)L.insertAdjacentHTML('beforeend',weekStats());}catch(e){}return r;};}catch(e){}
 try{var _rs=renderRuleSuggestions;renderRuleSuggestions=function(){var r=_rs.apply(this,arguments);try{var L=$('rule-suggest');if(L)L.insertAdjacentHTML('beforeend',ruleLogHtml());}catch(e){}return r;};}catch(e){}
 try{var _ra=renderAAR;renderAAR=function(){var r=_ra.apply(this,arguments);try{if(!$('al-aar')){var w=$('aar-what');if(w){var b=document.createElement('button');b.id='al-aar';b.className='btn btn-gh btn-sm';b.style.margin='0 0 8px';b.textContent='DRAFT FROM THIS WEEK\u2019S ACTIONS';b.onclick=aarFill;w.parentNode.insertBefore(b,w);}}}catch(e){}return r;};}catch(e){}
-try{var _ri=renderInbox;renderInbox=function(){var r=_ri.apply(this,arguments);try{var L=$('inbox-list');if(!L)return r;var open=(S.inbox||[]).filter(function(x){return !x.done;}).slice(0,25);
+try{var _ri=renderInbox;renderInbox=function(){var r=_ri.apply(this,arguments);try{var L=$('inbox-list');if(!L)return r;var open=(S.inbox||[]).filter(function(x){return !x.done&&!x.convertedTo;}).slice(0,25);
  [].slice.call(L.querySelectorAll('.li')).forEach(function(row,j){var it=open[j];if(!it||row.querySelector('.al-ib'))return;var i=S.inbox.indexOf(it);var b=document.createElement('button');b.className='btn btn-gh btn-sm al-ib';b.textContent='\u2192 ACTION';b.title='Classify into an action, event, expense\u2026';b.onclick=function(){fromInbox(i);};var last=row.lastElementChild;row.insertBefore(b,last);});}catch(e){}return r;};}catch(e){}
 
 try{var _sw=switchTab;switchTab=function(id,btn){var same=(typeof curTab!=='undefined'&&curTab===id);var r=_sw.apply(this,arguments);
  if(same){setTimeout(function(){var m=document.getElementById('main');if(m)m.scrollTo({top:0,behavior:'smooth'});},60);}return r;};}catch(e){}
 try{checkExportReminder=function(){};}catch(e){}
-window.sovAct={bkRestore:bkRestore,bkExport:bkExport,bkCopy:bkCopy,grp:grp,pseg:pseg,sheet:sheet,refreshAll:refresh,norm:function(f){norm(f);},rank:rank,create:create,complete:complete,skip:skip,cancel:cancel,defer:defer,toggleWait:toggleWait,resume:resume,
+window.sovAct={make:mk,bkRestore:bkRestore,bkExport:bkExport,bkCopy:bkCopy,grp:grp,pseg:pseg,sheet:sheet,refreshAll:refresh,norm:function(f){norm(f);},rank:rank,create:create,complete:complete,skip:skip,cancel:cancel,defer:defer,toggleWait:toggleWait,resume:resume,
  setOutcome:setOutcome,outSkip:outSkip,recordDone:recordDone,outSheet:outSheet,outPick:outPick,leadOut:leadOut,open:open,edit:edit,saveEdit:saveEdit,deferSheet:deferSheet,
  calDone:calDone,calDefer:calDefer,calEdit:calEdit,capture:capture,retype:retype,saveDraft:saveDraft,close:closeSheet,parse:parse,
  ruleDecide:ruleDecide,dealFollow:dealFollow,beforeCC:beforeCC,afterCC:afterCC,nowId:nowId,dueTomorrowLines:dueTomorrowLines,
@@ -6849,7 +6852,7 @@ function learnRender(){
 function hasRef(ref){return(S.live||[]).some(function(o){return o.ref===ref&&(o.status==='open'||o.status==='deferred');});}
 function loose(){
  var q=[],now=Date.now();
- (S.inbox||[]).forEach(function(it,i){if(!it.done)q.push({k:'inbox',i:i,cat:it.cat,t:it.t||'(blank)',age:it.ts?Math.floor((now-it.ts)/DAY):0,why:'captured, never decided'});});
+ (S.inbox||[]).forEach(function(it,i){if(!it.done&&!it.convertedTo)q.push({k:'inbox',i:i,cat:it.cat,t:it.t||'(blank)',age:it.ts?Math.floor((now-it.ts)/DAY):0,why:'captured, never decided'});});
  (S.live||[]).forEach(function(o){
   if(o.status==='open'&&!o.dueAt&&o.priority!=='high'&&!o.linkedCase)q.push({k:'undated',id:o.id,dom:o.dom,lc:o.linkedCase,t:o.t,age:Math.floor((now-(o.ts||now))/DAY),why:'no date \u2014 it will never surface on its own'});
   if(o.status==='deferred'&&!o.deferredUntil){var a=o.deferredAt?Math.floor((now-o.deferredAt)/DAY):0;if(a>=3)q.push({k:'parked',id:o.id,dom:o.dom,lc:o.linkedCase,t:o.t,age:a,why:'waiting on someone for '+a+' days'});}

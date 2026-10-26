@@ -8,3 +8,6 @@
 #v2-panel :focus-visible{outline:3px solid var(--em);outline-offset:3px;} @media(max-width:500px){#v2-panel{padding:12px;}#v2-panel form>*{flex-basis:100%;}#v2-panel ul{padding-left:18px;}}
 
 #sec-brief.v2-simplified > :not(#v2-panel){display:none!important;}
+/* Keep operational controls readable while legacy cards animate into view. */
+#v2-panel{animation:none!important;clip-path:none!important;transform:none!important;}
+#v2-panel input,#v2-panel textarea,#v2-panel select{color-scheme:dark;}

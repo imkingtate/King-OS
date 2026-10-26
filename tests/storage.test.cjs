@@ -26,3 +26,4 @@ test('corrupt primary is never overwritten by autosave',()=>{
  const s=store({sov_v3:'broken',sov_v3_prev:JSON.stringify(defaults)});
  assert.throws(()=>write(s,defaults,defaults));assert.equal(s.getItem('sov_v3'),'broken');assert.equal(s.getItem('sov_v3_prev'),JSON.stringify(defaults));
 });
+test('unsupported versions and malformed canonical actions cannot be loaded',()=>{assert.throws(()=>decode('{"v2":{"version":99}}'));assert.throws(()=>decode('{"live":{}}'));});
