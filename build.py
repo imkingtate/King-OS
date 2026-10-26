@@ -4,6 +4,6 @@ import shutil
 root = Path(__file__).resolve().parent
 out = root / 'dist'
 out.mkdir(exist_ok=True)
-for name in ('index.html', 'storage.js', 'domain.js', 'v2.js', 'v2.css', 'design.css'):
+for name in ('index.html', 'storage.js', 'domain.js', 'v2.js', 'v2.css', 'design.css', 'operations.js', 'vault.js', 'accessibility.js'):
     shutil.copy2(root / name, out / name)
-print('Static preview built in dist (6 application files)')
+print('Static preview built in dist (9 application files)')

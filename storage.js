@@ -3,6 +3,9 @@
 'use strict';
 function validate(value, defaults){
  if(!value || typeof value!=='object' || Array.isArray(value)) throw Error('Expected a SOVEREIGN record');
+ let nodes=0;
+ function inspect(node,depth){if(++nodes>500000||depth>100)throw Error('Record is too complex');if(typeof node==='number'&&!Number.isFinite(node))throw Error('Record contains an invalid number');if(node&&typeof node==='object'){for(const k of Object.keys(node)){if(['__proto__','constructor','prototype'].includes(k))throw Error('Unsafe record key');inspect(node[k],depth+1);}}}
+ inspect(value,0);
  for(const key of Object.keys(value)){
   if(['__proto__','constructor','prototype'].includes(key)) throw Error('Unsafe record key');
   if(defaults && Object.hasOwn(defaults,key) && defaults[key]!==null){
@@ -19,7 +22,9 @@ function validate(value, defaults){
   if(!v.briefings||typeof v.briefings!=='object'||Array.isArray(v.briefings))throw Error('Invalid briefings');
   if(!v.nutrition||!Number.isFinite(v.nutrition.protein)||v.nutrition.protein<=0||!Number.isFinite(v.nutrition.water)||v.nutrition.water<=0)throw Error('Invalid nutrition targets');
   if(!Number.isFinite(v.protectedSavings)||v.protectedSavings<0)throw Error('Invalid protected savings');
-  for(const item of [...v.obligations,...v.paydays,...v.transactions,...v.offers])if(!Number.isFinite(item.amount)||item.amount<=0)throw Error('Invalid monetary record');
+  for(const optional of ['journal','skills','bodyHistory','balanceHistory','mealHistory','importHistory'])if(v[optional]!==undefined&&!Array.isArray(v[optional]))throw Error('Invalid '+optional);
+ for(const t of v.transactions){if(t.refunds!==undefined&&!Array.isArray(t.refunds))throw Error('Invalid refunds');if((t.refunds||[]).some(r=>!Number.isFinite(r.amount)||r.amount<=0)||((t.refunds||[]).reduce((n,r)=>n+r.amount,0)>t.amount))throw Error('Invalid refund amount');}
+ for(const item of [...v.obligations,...v.paydays,...v.transactions,...v.offers])if(!Number.isFinite(item.amount)||item.amount<=0)throw Error('Invalid monetary record');
  }
  return value;
 }

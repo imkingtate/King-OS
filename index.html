@@ -1,5 +1,5 @@
 <!DOCTYPE html><html lang="en"><head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#0b0c0e"><meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default"><meta name="apple-mobile-web-app-title" content="SOVEREIGN">
 <meta name="mobile-web-app-capable" content="yes">
@@ -692,7 +692,7 @@ select option{background:var(--card2)}
 <div class="h-chip" id="streak-chip"><span>  </span><strong id="hdr-streak">0</strong><span class="hdr-dot">·</span>  <span id="freeze-n">0</span></div>
 <div class="h-chip lvl-tap" onclick="openStatus()"><span class="hl">LVL</span><strong id="hdr-lvl">1</strong></div>
 <button class="hdr-icon-btn" onclick="toggleFoldAll()" title="Collapse all"><svg class="ico" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
-<button class="hdr-icon-btn" onclick="openSearch()"><svg class="ico" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg></button>
+<button class="hdr-icon-btn" onclick="openSearch()" aria-label="Search all records"><svg class="ico" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg></button>
 </div>
 </div>
 <div class="gate-overlay" id="search-overlay">
@@ -996,13 +996,13 @@ select option{background:var(--card2)}
 <div class="card card-hero"><div class="card-hd"><span class="ct">RULE ENGINE</span><span class="ct-d">Chronicle teaches COMMAND</span></div><div id="rule-suggest"></div></div>
 <div class="card"><div class="card-hd"><span class="ct">WEEKLY DIGEST</span><span class="ct-d">auto-generated from logged data</span></div><div id="weekly-digest"></div></div>
 <div class="card"><div class="card-hd"><span class="ct">DAY ARCHIVE</span><span class="ct-d">auto-saved before each reset</span></div><div id="archive-list"></div></div>
-<div class="card"><div class="card-hd"><span class="ct">DANGER ZONE</span></div><button class="btn btn-d btn-w" onclick="if(confirm('Delete ALL data? This cannot be undone.')){localStorage.removeItem('sov_v3');location.reload()}">RESET ALL DATA</button></div>
+<div class="card"><div class="card-hd"><span class="ct">DATA MANAGEMENT</span></div><button class="btn btn-gh btn-w" onclick="SovereignWorkspace.open('settings')">OPEN BACKUP AND RECOVERY SETTINGS</button></div>
 </div>
 </div>
 <!-- ============ FINANCE ============ -->
 <div class="sec" id="sec-finance">
 <div class="jump-bar" id="jump-finance"></div>
-<div class="st">Personal finance</div><div class="ss">Your money, separate from business accounts</div>
+<div class="st">Personal finance</div><div class="ss">Manual and imported records, not bank-verified balances. Totals include only accounts classified as personal in Command → Money; unassigned and business accounts are excluded.</div>
 <div class="mg3"><div class="met"><div class="mv" id="f-in">$0</div><div class="ml">IN · 30D</div></div><div class="met"><div class="mv" id="f-out">$0</div><div class="ml">OUT · 30D</div></div><div class="met"><div class="mv" id="f-net">$0</div><div class="ml">NET · 30D</div></div></div>
 <div class="card"><div class="card-hd"><span class="ct">RUNWAY</span><span class="ct-d">know your downside before chasing upside</span></div>
 <div class="met" style="margin-bottom:0"><div class="mv" id="f-runway">—</div><div class="ml">MONTHS AT CURRENT BURN</div><div class="ms" id="f-runway-note"></div></div></div>
@@ -1108,6 +1108,7 @@ select option{background:var(--card2)}
 </div><!-- /app -->
 <script src="storage.js"></script>
 <script src="domain.js"></script>
+<script src="operations.js"></script>
 <script>
 /* Chart.js v4.5.1 UMD build, embedded inline (not CDN-loaded) so the
    file keeps working fully offline if opened locally, per constraint. */
@@ -1330,7 +1331,7 @@ function countUp(elm,to,fmt,dur){
   })(start);
 }
 function load(){
-  var d=localStorage.getItem('sov_v3');S=d?SovereignStorage.decode(d,DS):JSON.parse(JSON.stringify(DS));
+  var d=localStorage.getItem('sov_v3');_persistedRaw=d;S=d?SovereignStorage.decode(d,DS):JSON.parse(JSON.stringify(DS));
   
 ['reignRev','pipeline','lossLog','sideQuests','readingLog','knowledgeVault','shadowHistory','customLaws','lifeEvents','decisions','netWorthHistory','weekDays','calendarEvents'].forEach(function(k){if(!Array.isArray(S[k]))S[k]=[];});
   
@@ -1472,20 +1473,23 @@ function storageError(message){
  var restore=document.createElement('button');restore.textContent='Recover previous save';restore.style.marginLeft='12px';
  restore.onclick=function(){try{var raw=localStorage.getItem('sov_v3_prev');if(!raw)throw Error('No previous save exists');SovereignStorage.decode(raw,DS);if(!confirm('Restore previous save? Download the current recovery copy first.'))return;var original=localStorage.getItem('sov_v3');if(original){var recoveryKey='sov_v3_recovery_original';var retained=localStorage.getItem(recoveryKey);if(retained&&retained!==original)recoveryKey+='_'+Date.now();localStorage.setItem(recoveryKey,original);}localStorage.setItem('sov_v3',raw);if(localStorage.getItem('sov_v3')!==raw)throw Error('Recovery write failed');location.reload();}catch(e){alert('Recovery failed: '+e.message);}};box.appendChild(restore);
 }
-var _storageConflict=false;
+var _storageConflict=false,_persistedRaw=null;
 window.addEventListener('storage',function(event){if(event.key==='sov_v3'){_storageConflict=true;storageError('Another tab changed this record. Reload before editing to avoid overwriting newer data.');}});
-function save(){try{if(_storageConflict)throw Error('Another tab changed the record; reload first');S.cachedRank=getRank(calcLvl(calcXP())).letter;var json=SovereignStorage.write(localStorage,S,DS);idbMirror(json);var box=document.getElementById('storage-error');if(box)box.remove();return true;}catch(e){storageError('NOT SAVED: '+e.message+'. Export your data now.');return false;}}
+function save(){try{if(_storageConflict||localStorage.getItem('sov_v3')!==_persistedRaw)throw Error('Another tab changed the record; reload first');if(S.v2){SovereignOps.wake(S,normD(todayStr()));SovereignOps.reconcile(S,normD(todayStr()));}S.cachedRank=getRank(calcLvl(calcXP())).letter;var json=SovereignStorage.write(localStorage,S,DS);_persistedRaw=json;idbMirror(json);var box=document.getElementById('storage-error');if(box)box.remove();return true;}catch(e){storageError('NOT SAVED: '+e.message+'. Export your data now.');return false;}}
 /* IndexedDB mirror — secondary copy in case localStorage gets cleared
    (iOS Safari especially will evict localStorage under storage pressure).
    Best-effort, never blocks the UI, never throws. */
 var _idb=null;
 function idbInit(cb){if(_idb){cb(_idb);return;}
-try{var req=indexedDB.open('sovereign_backup',1);
-req.onupgradeneeded=function(e){e.target.result.createObjectStore('kv');};
-req.onsuccess=function(e){_idb=e.target.result;cb(_idb);};
+try{var req=indexedDB.open('sovereign_backup',2);
+req.onupgradeneeded=function(e){var db=e.target.result;if(!db.objectStoreNames.contains('kv'))db.createObjectStore('kv');if(!db.objectStoreNames.contains('revisions'))db.createObjectStore('revisions',{keyPath:'id',autoIncrement:true});};req.onblocked=function(){storageError('Close older SOVEREIGN tabs to upgrade the recovery journal.');};
+req.onsuccess=function(e){_idb=e.target.result;_idb.onversionchange=function(){_idb.close();_idb=null;};cb(_idb);};
 req.onerror=function(){cb(null);};}catch(e){cb(null);}}
-function idbMirror(json){idbInit(function(db){if(!db){storageError('Primary saved, but recovery mirror is unavailable. Export a backup.');return;}
-try{var tx=db.transaction('kv','readwrite');tx.objectStore('kv').put(json,'sov_v3');tx.onerror=function(){storageError('Primary saved, but recovery mirror failed. Export a backup.');};}catch(e){storageError('Recovery mirror unavailable. Export a backup.');}});}
+function idbMirror(json,force,done){idbInit(function(db){if(!db){storageError('Primary saved, but recovery mirror is unavailable. Export a backup.');if(done)done(false);return;}
+try{var tx=db.transaction(['kv','revisions'],'readwrite');var kv=tx.objectStore('kv'),revisions=tx.objectStore('revisions'),prior=kv.get('sov_v3'),stamp=kv.get('journal_ts');var priorValue,stampValue,reads=0;
+function write(){if(++reads<2)return;if(priorValue!==json){var checkpoint=force||!stampValue||Date.now()-stampValue>=60000;if(checkpoint){if(priorValue)revisions.add({json:priorValue,ts:Date.now(),kind:'checkpoint'});if(!priorValue||force)revisions.add({json:json,ts:Date.now(),kind:'saved'});kv.put(Date.now(),'journal_ts');}kv.put(json,'sov_v3');}}
+prior.onsuccess=function(){priorValue=prior.result;write();};stamp.onsuccess=function(){stampValue=stamp.result;write();};tx.oncomplete=function(){if(done)done(true);};tx.onabort=tx.onerror=function(){storageError('Primary saved, but recovery mirror failed. Export a backup.');if(done){var cb=done;done=null;cb(false);}};
+}catch(e){storageError('Recovery mirror unavailable. Export a backup.');if(done)done(false);}});}
 function idbRestore(cb){idbInit(function(db){if(!db){cb(null);return;}
 try{var tx=db.transaction('kv','readonly');var req=tx.objectStore('kv').get('sov_v3');
 req.onsuccess=function(){cb(req.result||null);};req.onerror=function(){cb(null);};}catch(e){cb(null);}});}
@@ -3067,7 +3071,7 @@ S.reignRev.forEach(function(r){
  if(!r.v2transaction||!S.v2||!S.v2.transactions.some(function(t){return t.id===r.v2transaction&&SovereignDomain.verified(t);}))return;
  var buyer=(r.buyer||'').trim();if(!buyer)return;var key=JSON.stringify([r.creator||'Unassigned',buyer]);
  if(!m[key])m[key]={name:buyer,noteKey:key,creator:r.creator||'Unassigned',total:0,count:0,lastTs:0,ventures:{}};
- m[key].total+=(+r.amt||0);m[key].count++;
+ var transaction=S.v2.transactions.find(function(t){return t.id===r.v2transaction;});var net=SovereignOps.net(transaction);if(!net)return;m[key].total+=net;m[key].count++;
  if((r.ts||0)>m[key].lastTs)m[key].lastTs=r.ts||0;
  if(r.creator)m[key].ventures[r.creator]=true;
 });return Object.values(m).sort(function(a,b){return b.total-a.total;});}
@@ -3238,11 +3242,11 @@ celebrate(amt>=250?3:2,money(amt)+' CLOSED',esc(p.name));haptic();}
 if(!p.whale)S.pipeline.splice(i,1);else p.stage=1;}
 save();renderReign();renderHdr();checkGates();checkAch();}
 function snapNW(){S.netWorthHistory.push({date:todayStr(),value:(S.assets||0)-(S.liabilities||0),assets:S.assets||0,liabilities:S.liabilities||0});save();renderReign();toast('Net worth snapshot saved','b');}
-function checkGates(){var m=rev30(Date.now());GATES.forEach(function(g){if(!S.gatesHit[g.v]&&m>=g.v){S.gatesHit[g.v]=todayStr();save();el('m-gate-i').textContent='  ';el('m-gate-t').textContent='GATE CLEARED · '+g.n;el('m-gate-b').textContent=money(g.v)+' monthly revenue reached.';el('m-gate-x').textContent='+'+g.xp+' XP';showModal('m-gate');celebrate(3,'GATE CLEARED',g.n);renderHdr();}});}
+function checkGates(){var m=(S.v2&&S.v2.transactions||[]).filter(function(t){return SovereignDomain.verified(t)&&Date.now()-new Date(t.date+'T12:00:00').getTime()<=30*864e5;}).reduce(function(n,t){return n+SovereignOps.net(t);},0);GATES.forEach(function(g){if(!S.gatesHit[g.v]&&m>=g.v){S.gatesHit[g.v]=todayStr();save();el('m-gate-i').textContent='  ';el('m-gate-t').textContent='GATE CLEARED · '+g.n;el('m-gate-b').textContent=money(g.v)+' monthly revenue reached.';el('m-gate-x').textContent='+'+g.xp+' XP';showModal('m-gate');celebrate(3,'GATE CLEARED',g.n);renderHdr();}});}
 /* ================= FINANCE (personal) ================= */
-function finFlow(days,type){var lo=Date.now()-days*864e5;return S.finTx.filter(function(t){return(t.ts||0)>=lo&&(type?t.type===type:true);}).reduce(function(a,t){return a+(+t.amt||0);},0);}
-function finNet30(endTs){var lo=endTs-30*864e5;var win=S.finTx.filter(function(t){return(t.ts||0)>lo&&(t.ts||0)<=endTs;});var inc=win.filter(function(t){return t.type==='income';}).reduce(function(a,t){return a+(+t.amt||0);},0);var out=win.filter(function(t){return t.type==='expense';}).reduce(function(a,t){return a+(+t.amt||0);},0);return inc-out;}
-function acctTotal(){return S.finAccounts.reduce(function(a,c){return a+(+c.balance||0);},0);}
+function finFlow(days,type){var lo=Date.now()-days*864e5;return S.finTx.filter(function(t){return(!S.v2||!S.v2.accountScopes||S.v2.accountScopes[t.account]==='personal')&&(t.ts||0)>=lo&&(type?t.type===type:true);}).reduce(function(a,t){return a+(+t.amt||0);},0);}
+function finNet30(endTs){var lo=endTs-30*864e5;var win=S.finTx.filter(function(t){return(!S.v2||!S.v2.accountScopes||S.v2.accountScopes[t.account]==='personal')&&(t.ts||0)>lo&&(t.ts||0)<=endTs;});var inc=win.filter(function(t){return t.type==='income';}).reduce(function(a,t){return a+(+t.amt||0);},0);var out=win.filter(function(t){return t.type==='expense';}).reduce(function(a,t){return a+(+t.amt||0);},0);return inc-out;}
+function acctTotal(){return S.finAccounts.filter(function(c){return !S.v2||!S.v2.accountScopes||S.v2.accountScopes[c.name]==='personal';}).reduce(function(a,c){return a+(+c.balance||0);},0);}
 /* STRUCTURAL RESOLUTION — Reign and Finance used to each maintain their own
    independent net-worth number (separate inputs, separate history, separate
    chart), which meant two different answers to "what am I worth." Finance's
@@ -3869,11 +3873,11 @@ function importText(raw){
     if(!p||typeof p!=='object'||Array.isArray(p))throw new Error('That is not a SOVEREIGN data object.');
     var n=Object.keys(p).length;if(n<5)throw new Error('Only '+n+' fields found \u2014 this does not look like a full SOVEREIGN backup.');
     SovereignStorage.validate(p,DS);var restored=Object.assign({},JSON.parse(JSON.stringify(DS)),p);var out=JSON.stringify(restored),prev=null;
-    try{prev=localStorage.getItem('sov_v3');if(prev)localStorage.setItem('sov_v3_prev',prev);localStorage.setItem('sov_v3',out);idbMirror(out);}
+    try{prev=localStorage.getItem('sov_v3');if(prev)localStorage.setItem('sov_v3_prev',prev);localStorage.setItem('sov_v3',out);}
     catch(e){throw new Error('This window blocked saving ('+(e&&e.name||'storage')+'). Open SOVEREIGN in Safari or Chrome directly, not in a preview or in-app window.');}
     if(localStorage.getItem('sov_v3')!==out)throw new Error('The data did not stick \u2014 storage is restricted in this window. Open SOVEREIGN in Safari or Chrome directly.');
-    impMsg('Imported '+n+' fields \u2014 reloading\u2026',false);
-    setTimeout(function(){try{location.reload();}catch(e){location.href=location.href;}},800);
+    impMsg('Primary saved; verifying recovery copy before reload…',false);
+    idbMirror(out,true,function(ok){if(!ok){impMsg('Primary saved, but recovery copy failed. Export the current browser record before continuing.',true);return;}impMsg('Imported '+n+' fields — reloading…',false);setTimeout(function(){location.reload();},100);});
     return true;
   }catch(e){impMsg('Import failed: '+e.message,true);return false;}
 }
@@ -7351,5 +7355,7 @@ input:focus,textarea:focus,select:focus{box-shadow:none!important;border-color:#
 </style>
 <link rel="stylesheet" href="v2.css">
 <link rel="stylesheet" href="design.css">
+<script src="vault.js"></script>
 <script src="v2.js"></script>
+<script src="accessibility.js"></script>
 </body></html>
